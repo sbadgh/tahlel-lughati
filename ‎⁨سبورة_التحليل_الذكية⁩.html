@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سبورة التحليل الذكية - رحلة أبطال لغتي</title>
+    <!-- استيراد خطوط عربية واضحة للشاشات والشهادة -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,700;1,700&family=Cairo:wght@600;700;800;900&family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <!-- مكتبة Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- مكتبة FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- مكتبة html2canvas لحفظ الشهادة كصورة عالية الجودة -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- مكتبة Canvas Confetti للاحتفال -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Cairo', 'Tajawal', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #fef9c3 50%, #fce7f3 100%);
+            min-height: 100vh;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .arabic-word {
+            font-family: 'Cairo', sans-serif;
+            line-height: 1.8;
+            letter-spacing: 1px;
+        }
+
+        .cert-font {
+            font-family: 'Amiri', serif;
+        }
+
+        /* أزرار طفولية ثلاثية الأبعاد */
+        .btn-kid {
+            transition: all 0.15s ease;
+            box-shadow: 0 5px 0 rgba(0, 0, 0, 0.16);
+        }
+        .btn-kid:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.16);
+        }
+
+        /* لوحة الكتابة اليدوية في كل خانة */
+        .syllable-canvas {
+            touch-action: none;
+            cursor: crosshair;
+            background-color: #ffffff;
+            background-image: 
+                linear-gradient(to right, rgba(186, 230, 253, 0.35) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(186, 230, 253, 0.35) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* خط السطر الإرشادي داخل خانة الكتابة */
+        .writing-baseline {
+            position: absolute;
+            bottom: 28%;
+            left: 8%;
+            right: 8%;
+            border-bottom: 2px dashed rgba(244, 63, 94, 0.35);
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-7px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.03); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-7px); }
+            50% { transform: translateX(7px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes starBurst {
+            0% { transform: scale(0.2) rotate(-45deg); opacity: 0; }
+            60% { transform: scale(1.25) rotate(12deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .animate-star-burst {
+            animation: starBurst 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* إطار الشهادة المزخرف */
+        .certificate-frame {
+            background: radial-gradient(circle at top right, #fffbeb 0%, #ffffff 45%, #f0f9ff 100%);
+            border: 12px double #d97706;
+            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.18), inset 0 0 0 6px #fde68a;
+        }
+    </style>
+</head>
+<body class="p-3 sm:p-5 md:p-6 flex flex-col justify-center">
+
+    <!-- حاوية التنبيهات اللطيفة -->
+    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-11/12 max-w-md pointer-events-none"></div>
+
+    <!-- نافذة النجمة الذهبية الاحتفالية عند الإجابة الصحيحة -->
+    <div id="star-celebration-modal" class="hidden fixed inset-0 z-40 bg-sky-950/55 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full text-center border-4 border-amber-400 shadow-2xl animate-pop-in">
+            <div class="w-28 h-28 mx-auto mb-4 bg-gradient-to-tr from-amber-400 via-yellow-300 to-orange-400 rounded-full flex items-center justify-center shadow-xl ring-8 ring-amber-100 animate-star-burst">
+                <i class="fas fa-star text-6xl text-white drop-shadow"></i>
+            </div>
+            <h3 class="text-2xl sm:text-3xl font-black text-emerald-600 mb-2">أَحْسَنْتَ يَا بَطَلُ! 🌟</h3>
+            <p id="star-modal-message" class="text-slate-700 font-bold text-base sm:text-lg mb-5">
+                تَحْلِيلٌ صَحِيحٌ 100%! لَقَدْ حَصَلْتَ عَلَى نَجْمَةٍ ذَهَبِيَّةٍ جَدِيدَةٍ!
+            </p>
+            <button type="button" onclick="closeStarModal()" 
+                class="btn-kid w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-lg py-3.5 px-6 rounded-2xl shadow-lg cursor-pointer">
+                رَائِعٌ! مُتَابَعَةٌ
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 1. الشاشة الترحيبية للطلاب -->
+    <!-- ===================================================================== -->
+    <section id="welcome-screen" class="max-w-2xl mx-auto w-full bg-white/95 backdrop-blur-md rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border-4 border-sky-400 text-center animate-pop-in">
+        <div class="w-24 h-24 mx-auto mb-5 bg-gradient-to-tr from-amber-400 via-orange-400 to-rose-500 rounded-3xl flex items-center justify-center text-white text-5xl shadow-lg animate-float">
+            <i class="fas fa-pen-fancy"></i>
+        </div>
+
+        <span class="inline-block bg-sky-100 text-sky-800 font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-full mb-3 border border-sky-300">
+            مَادَّةُ لُغَتِي الجَمِيلَةُ • الصَّفُّ الثَّالِثُ الِابْتِدَائِيُّ
+        </span>
+
+        <h1 class="text-2xl sm:text-4xl font-black text-sky-950 mb-3 leading-snug">
+            مَرْحَبًا بِكَ فِي رِحْلَةِ أَبْطَالِ التَّحْلِيلِ!
+        </h1>
+
+        <p class="text-slate-600 font-bold text-sm sm:text-base mb-7 leading-relaxed max-w-lg mx-auto">
+            اُكْتُبِ اسْمَكَ الجَمِيلَ لِتَبْدَأَ التَّحَدِّي، وَاكْتَشِفْ عَدَدَ المَقَاطِعِ الصَّوْتِيَّةِ، ثُمَّ حَلِّلِ الكَلِمَاتِ بِخَطِّ يَدِكَ لِتَجْمَعَ النُّجُومَ وَتَحْصُلَ عَلَى <span class="text-amber-600 font-black">شَهَادَةِ التَّفَوُّقِ</span>!
+        </p>
+
+        <div class="max-w-md mx-auto mb-6">
+            <label for="student-name-input" class="block text-right font-extrabold text-sky-900 mb-2 text-base sm:text-lg">
+                <i class="fas fa-user-graduate text-amber-500 ml-1.5"></i>اُكْتُبِ اسْمَكَ الثُّلَاثِيَّ هُنَا:
+            </label>
+            <input type="text" id="student-name-input" placeholder="مثال: أحمد محمد العسيري" autocomplete="off"
+                class="w-full bg-sky-50/70 border-4 border-sky-300 focus:border-amber-400 rounded-2xl px-5 py-4 text-xl sm:text-2xl font-black text-sky-950 text-center outline-none transition shadow-inner">
+        </div>
+
+        <button type="button" id="start-journey-btn" onclick="startJourney()" 
+            class="btn-kid w-full max-w-md bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-600 hover:from-emerald-600 hover:to-sky-700 text-white font-black text-xl sm:text-2xl py-4 px-8 rounded-2xl flex items-center justify-center gap-3 mx-auto shadow-xl cursor-pointer">
+            <span>اِبْدَأِ التَّحَدِّي</span>
+        </button>
+
+        <div class="mt-6 flex items-center justify-center gap-4 text-xs sm:text-sm font-bold text-slate-500">
+            <span><i class="fas fa-paint-brush text-sky-500 ml-1"></i>كِتَابَةٌ بِيَدِكَ</span>
+            <span>•</span>
+            <span><i class="fas fa-star text-amber-400 ml-1"></i>5 كَلِمَاتٍ مُتَنَوِّعَةٍ</span>
+            <span>•</span>
+            <span><i class="fas fa-award text-rose-500 ml-1"></i>شَهَادَةٌ فَوْرِيَّةٌ</span>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 2. شاشة التحدي والسبورة اليدوية -->
+    <!-- ===================================================================== -->
+    <main id="workspace-screen" class="hidden max-w-5xl mx-auto w-full">
+        
+        <header class="bg-white/95 backdrop-blur-md rounded-3xl p-4 sm:p-5 shadow-lg border-4 border-sky-300 mb-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow">
+                        <i class="fas fa-user-astronaut"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs font-bold text-slate-500 block">البَطَلُ المُبْدِعُ:</span>
+                        <h2 id="header-student-name" class="text-lg sm:text-xl font-black text-sky-950">طالب لغتي</h2>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-300 text-rose-950 px-3.5 py-1.5 rounded-2xl font-black text-sm sm:text-base flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-stopwatch text-rose-500 text-lg"></i>
+                        <span>الوَقْتُ: <span id="timer-display" class="text-rose-700 text-lg font-mono">00:00</span></span>
+                    </div>
+
+                    <div id="stars-counter-badge" class="bg-gradient-to-r from-amber-100 to-yellow-100 border-2 border-amber-400 text-amber-950 px-3.5 py-1.5 rounded-2xl font-black text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition-transform">
+                        <i class="fas fa-star text-amber-500 text-lg"></i>
+                        <span>النُّجُومُ: <span id="earned-stars-count" class="text-amber-700 text-lg">0</span> / 5</span>
+                    </div>
+
+                    <div class="bg-sky-100 border-2 border-sky-300 text-sky-950 px-3.5 py-1.5 rounded-2xl font-black text-sm sm:text-base flex items-center gap-2">
+                        <i class="fas fa-flag-checkered text-sky-600"></i>
+                        <span>الكَلِمَةُ <span id="current-step-num" class="text-indigo-700 text-lg">1</span> مِنْ <span id="total-steps-num">5</span></span>
+                    </div>
+
+                    <button type="button" onclick="toggleSound()" title="تشغيل/كتم الصوت"
+                        class="btn-kid bg-purple-100 hover:bg-purple-200 text-purple-700 border-2 border-purple-300 rounded-2xl p-3 font-bold cursor-pointer">
+                        <i id="sound-icon" class="fas fa-volume-up text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="relative pt-1">
+                <div class="flex items-center justify-between gap-1.5 sm:gap-2" id="progress-steps-bar"></div>
+            </div>
+        </header>
+
+        <div class="bg-white rounded-[2.2rem] p-4 sm:p-7 shadow-xl border-4 border-indigo-300">
+            
+            <div class="bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 rounded-3xl p-4 sm:p-6 text-center shadow-lg mb-5 relative overflow-hidden">
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 my-1">
+                    <div id="target-word-display" class="arabic-word text-4xl sm:text-6xl font-black text-white drop-shadow-md transition-transform duration-300">
+                        الْمَدْرَسَةُ
+                    </div>
+
+                    <button type="button" id="speak-btn" onclick="speakCurrentWord()" 
+                        class="btn-kid bg-amber-400 hover:bg-amber-300 text-amber-950 font-black px-4 py-2.5 rounded-2xl text-sm sm:text-base flex items-center gap-2 shadow-md cursor-pointer">
+                        <i class="fas fa-volume-up text-lg"></i>
+                        <span>اِسْتَمِعْ لِلْكَلِمَةِ</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-5">
+                <div class="lg:col-span-5 bg-amber-50 border-2 border-amber-300 rounded-2xl p-3 flex items-center justify-between gap-2">
+                    <span class="text-xs sm:text-sm font-black text-amber-950 flex items-center gap-1.5">
+                        <i class="fas fa-th-large text-amber-600 text-base"></i>
+                        <span>عَدَدُ المُرَبَّعَاتِ:</span>
+                    </span>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="decrease-box-btn" onclick="changeBoxCount(-1)" title="إنقاص مربع"
+                            class="btn-kid w-10 h-10 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xl flex items-center justify-center shadow disabled:opacity-40 disabled:pointer-events-none cursor-pointer">
+                            <i class="fas fa-minus"></i>
+                        </button>
+
+                        <span id="box-count-display" class="w-11 h-10 rounded-xl bg-white border-2 border-amber-400 font-black text-xl text-amber-950 flex items-center justify-center shadow-inner">
+                            3
+                        </span>
+
+                        <button type="button" id="increase-box-btn" onclick="changeBoxCount(1)" title="زيادة مربع"
+                            class="btn-kid w-10 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xl flex items-center justify-center shadow disabled:opacity-40 disabled:pointer-events-none cursor-pointer">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-7 bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <span class="text-xs font-black text-slate-700">القَلَمُ:</span>
+                        <button type="button" onclick="selectPenColor('#1e293b', this)" data-color="#1e293b"
+                            class="pen-swatch w-8 h-8 rounded-full bg-slate-800 border-4 border-white ring-4 ring-sky-400 transition transform scale-110 cursor-pointer" title="أسود"></button>
+                        <button type="button" onclick="selectPenColor('#2563eb', this)" data-color="#2563eb"
+                            class="pen-swatch w-8 h-8 rounded-full bg-blue-600 border-4 border-white ring-2 ring-slate-300 transition hover:scale-105 cursor-pointer" title="أزرق"></button>
+                        <button type="button" onclick="selectPenColor('#16a34a', this)" data-color="#16a34a"
+                            class="pen-swatch w-8 h-8 rounded-full bg-green-600 border-4 border-white ring-2 ring-slate-300 transition hover:scale-105 cursor-pointer" title="أخضر"></button>
+                        <button type="button" onclick="selectPenColor('#7c3aed', this)" data-color="#7c3aed"
+                            class="pen-swatch w-8 h-8 rounded-full bg-violet-600 border-4 border-white ring-2 ring-slate-300 transition hover:scale-105 cursor-pointer" title="بنفسجي"></button>
+                        <button type="button" onclick="selectPenColor('#dc2626', this)" data-color="#dc2626"
+                            class="pen-swatch w-8 h-8 rounded-full bg-red-600 border-4 border-white ring-2 ring-slate-300 transition hover:scale-105 cursor-pointer" title="أحمر"></button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="selectPenSize(4, this)" class="size-btn px-2.5 py-1 rounded-xl border-2 border-slate-300 bg-white text-xs font-extrabold text-slate-700 cursor-pointer">رَفِيعٌ</button>
+                        <button type="button" onclick="selectPenSize(6, this)" class="size-btn px-2.5 py-1 rounded-xl border-2 border-sky-500 bg-sky-100 text-xs font-extrabold text-sky-900 cursor-pointer">وَسَطٌ</button>
+                        <button type="button" onclick="selectPenSize(9, this)" class="size-btn px-2.5 py-1 rounded-xl border-2 border-slate-300 bg-white text-xs font-extrabold text-slate-700 cursor-pointer">عَرِيضٌ</button>
+                        <button type="button" onclick="eraseAllBoxes()" title="مسح جميع المربعات"
+                            class="btn-kid bg-rose-100 hover:bg-rose-200 text-rose-700 border-2 border-rose-300 px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 mr-1 cursor-pointer">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>مَسْحُ الكُلِّ</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="feedback-banner" class="hidden mb-5 rounded-2xl p-4 border-2 flex items-start gap-3 transition-all duration-300">
+                <div id="feedback-icon" class="text-2xl mt-0.5"></div>
+                <div class="flex-1">
+                    <h4 id="feedback-title" class="font-black text-base sm:text-lg mb-0.5"></h4>
+                    <p id="feedback-message" class="font-bold text-sm sm:text-base leading-relaxed"></p>
+                </div>
+            </div>
+
+            <div id="handwriting-boxes-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7"></div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t-2 border-dashed border-slate-200">
+                <button type="button" id="prev-word-btn" onclick="goToPreviousWord()" 
+                    class="btn-kid w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 border-2 border-slate-300 font-extrabold px-5 py-3.5 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none cursor-pointer">
+                    <i class="fas fa-arrow-right"></i>
+                    <span>الكَلِمَةُ السَّابِقَةُ</span>
+                </button>
+
+                <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                    <button type="button" id="verify-answer-btn" onclick="verifyHandwritingAnswer()" 
+                        class="btn-kid w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-black text-lg sm:text-xl px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg cursor-pointer">
+                        <i class="fas fa-check-double text-xl"></i>
+                        <span id="verify-btn-text">تَحَقَّقْ مِنْ إِجَابَتِي</span>
+                    </button>
+
+                    <button type="button" id="next-word-btn" onclick="goToNextWord()" 
+                        class="hidden btn-kid w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-black text-lg sm:text-xl px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg animate-pop-in cursor-pointer">
+                        <span id="next-btn-label">الِانْتِقَالُ لِلْكَلِمَةِ التَّالِيَةِ</span>
+                        <i id="next-btn-icon" class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- 3. شاشة شهادة الشكر والتفوق التلقائية -->
+    <!-- ===================================================================== -->
+    <section id="certificate-screen" class="hidden max-w-4xl mx-auto w-full animate-pop-in">
+        
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white/90 backdrop-blur-md p-3.5 rounded-3xl border-2 border-amber-300 shadow">
+            <div class="flex items-center gap-2 text-amber-900 font-black text-sm sm:text-base">
+                <i class="fas fa-trophy text-amber-500 text-2xl"></i>
+                <span>أَحْسَنْتَ! لَقَدْ أَتْمَمْتَ جَمِيعَ الكَلِمَاتِ بِنَجَاحٍ!</span>
+            </div>
+
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button type="button" onclick="restartJourney()" 
+                    class="btn-kid bg-sky-100 hover:bg-sky-200 text-sky-800 border-2 border-sky-300 font-extrabold px-4 py-2.5 rounded-2xl text-sm flex items-center gap-2 cursor-pointer">
+                    <i class="fas fa-redo"></i>
+                    <span>تَدْرِيبٌ جَدِيدٌ</span>
+                </button>
+                <button type="button" onclick="downloadCertificate()" 
+                    class="btn-kid bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black px-5 py-2.5 rounded-2xl text-sm sm:text-base flex items-center gap-2 shadow-md cursor-pointer">
+                    <i class="fas fa-download"></i>
+                    <span>حِفْظُ الشَّهَادَةِ كَصُورَةٍ (PNG)</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="certificate-card" class="certificate-frame rounded-[2rem] p-6 sm:p-10 md:p-12 text-center relative overflow-hidden">
+            
+            <div class="absolute top-4 right-4 text-amber-500/30 text-4xl sm:text-5xl"><i class="fas fa-star"></i></div>
+            <div class="absolute top-4 left-4 text-amber-500/30 text-4xl sm:text-5xl"><i class="fas fa-star"></i></div>
+            <div class="absolute bottom-4 right-4 text-sky-500/20 text-4xl sm:text-5xl"><i class="fas fa-award"></i></div>
+            <div class="absolute bottom-4 left-4 text-sky-500/20 text-4xl sm:text-5xl"><i class="fas fa-award"></i></div>
+
+            <div class="mb-4">
+                <p class="text-sm sm:text-lg font-black text-sky-900 tracking-wide mb-2">
+                    مَدْرَسَةُ الإِبْدَاعِ لِلطُّفُولَةِ الْمُبَكِّرَةِ
+                </p>
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 border-4 border-amber-600 shadow-lg my-1">
+                    <i class="fas fa-medal text-4xl text-amber-900"></i>
+                </div>
+                <h2 class="cert-font text-3xl sm:text-5xl font-bold text-amber-700 mt-2">
+                    شَهَادَةُ شُكْرٍ وَتَفَوُّقٍ
+                </h2>
+                <div class="w-40 h-1.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto mt-2 rounded-full"></div>
+            </div>
+
+            <div class="my-5 space-y-3">
+                <p class="text-base sm:text-xl font-bold text-slate-700">
+                    تُهَنِّئُ مُعَلِّمَةُ مَادَّةِ لُغَتِي الطالب:
+                </p>
+
+                <div class="inline-block bg-amber-50/90 border-2 border-dashed border-amber-400 rounded-2xl px-6 sm:px-12 py-3 my-1 shadow-sm">
+                    <h3 id="cert-student-name" class="cert-font text-3xl sm:text-5xl font-bold text-sky-900">
+                        أحمد محمد العسيري
+                    </h3>
+                </div>
+
+                <p class="text-base sm:text-xl font-bold text-slate-700 max-w-2xl mx-auto leading-relaxed">
+                    وَلِذَلِكَ لِتَمَيُّزِهِ وَإِتْقَانِهِ مَهَارَةَ <span class="text-indigo-700 font-black">التَّحْلِيلِ الصَّوْتِيِّ وَالكِتَابِيِّ</span> لِكَلِمَاتِ مَنْهَجِ الصَّفِّ الثَّالِثِ الِابْتِدَائِيِّ بِخَطِّ يَدِهِ الجَمِيلِ، وَحُصُولِهِ عَلَى <span class="text-amber-600 font-black">5 نُجُومٍ ذَهَبِيَّةٍ</span>، وَيَسْتَحِقُّ بِجَدَارَةٍ وِسَامَ:
+                </p>
+
+                <div class="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-2 rounded-full font-black text-lg sm:text-xl shadow-md mt-1">
+                    <i class="fas fa-crown text-yellow-300"></i>
+                    <span>وِسَامُ نَجْمِ التَّحْلِيلِ الذَّكِيِّ</span>
+                    <i class="fas fa-crown text-yellow-300"></i>
+                </div>
+            </div>
+
+            <div class="max-w-md mx-auto my-4 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 border-2 border-amber-400/80 rounded-2xl p-4 shadow-inner flex items-center justify-around">
+                <div class="text-center">
+                    <span class="block text-xs font-black text-amber-900 mb-1"><i class="fas fa-stopwatch text-rose-600 ml-1"></i>الوَقْتُ المُسْتَهْلَكُ:</span>
+                    <strong id="cert-time-taken" class="text-xl sm:text-2xl font-black text-rose-700 font-mono">02:15</strong>
+                </div>
+                <div class="w-px h-10 bg-amber-300"></div>
+                <div class="text-center">
+                    <span class="block text-xs font-black text-amber-900 mb-1"><i class="fas fa-star text-amber-500 ml-1"></i>لَوْحَةُ الشَّرَفِ:</span>
+                    <strong class="text-sm sm:text-base font-black text-emerald-700">بَطَلُ التَّحَدِّي الأَوَّلُ</strong>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end mt-6 pt-5 border-t-2 border-amber-200/80 text-sm sm:text-base">
+                <div class="text-center">
+                    <span class="block text-xs font-bold text-slate-500 mb-1">التَّارِيخُ:</span>
+                    <strong id="cert-date" class="font-extrabold text-slate-800"></strong>
+                </div>
+
+                <div class="flex flex-col items-center justify-center">
+                    <div class="w-16 h-16 rounded-full border-4 border-double border-rose-500 flex items-center justify-center text-rose-600 font-black text-xs rotate-[-12deg] bg-rose-50/60 shadow-sm">
+                        مُتَمَيِّزٌ 100%
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <span class="block text-xs font-bold text-slate-500 mb-1">مُعَلِّمَةُ المَادَّةِ:</span>
+                    <strong class="cert-font text-xl sm:text-2xl text-indigo-950 block">أ. بَدْرِيَّة حَكَمِي</strong>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- السكريبت البرمجي الآمن والمتكامل -->
+    <!-- ===================================================================== -->
+    <script>
+        const journeyWords = [
+            {
+                word: "الْمَدْرَسَةُ",
+                syllables: ["الـ", "مد", "ر", "سـ", "ـة"],
+                acceptedVariants: [
+                    ["الـ", "ال", "أل", "ألـ"],
+                    ["مد", "مَدْ", "مَد", "مدْ"],
+                    ["ر", "رَ"],
+                    ["سـ", "س", "سَـ", "سَ"],
+                    ["ـة", "ة", "ـةُ", "ةُ"]
+                ],
+                skill: "مَهَارَةُ اللَّامِ القَمَرِيَّةِ وَالمَقْطَعِ السَّاكِنِ",
+                boxCountHint: "تَذَكَّرْ: (الـ) القَمَرِيَّةُ مَعاً، وَ(مد) مَقْطَعٌ سَاكِنٌ مَعاً.",
+                hintRule: "اِنْتَبِهْ! (الـ) القَمَرِيَّةُ تُكْتَبُ مَعاً، وَ(مد) مَقْطَعٌ سَاكِنٌ يُكْتَبُ مَعاً.",
+                boxHints: [
+                    "المُرَبَّعُ ١: (الـ) القَمَرِيَّةُ تُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٢: (مد) مَقْطَعٌ سَاكِنٌ يُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٣: حَرْفُ (ر) مُتَحَرِّكٌ وَحْدَهُ.",
+                    "المُرَبَّعُ ٤: حَرْفُ (سـ) مُتَحَرِّكٌ وَحْدَهُ.",
+                    "المُرَبَّعُ ٥: التَّاءُ المَرْبُوطَةُ (ـة) وَحْدَهَا."
+                ]
+            },
+            {
+                word: "كِتَابٌ",
+                syllables: ["كـ", "تا", "ب"],
+                acceptedVariants: [
+                    ["كـ", "ك", "كِـ", "كِ"],
+                    ["تا", "تَا"],
+                    ["ب", "بٌ", "ـب", "ـبٌ"]
+                ],
+                skill: "مَهَارَةُ المَدِّ بِالأَلِفِ مَعَ المَمْدُودِ",
+                boxCountHint: "تَذَكَّرْ: المَقْطَعُ المَمْدُودُ (تا) يُكْتَبُ مَعاً.",
+                hintRule: "تَذَكَّرْ: المَقْطَعُ المَمْدُودُ (تا) يُكْتَبُ مَعاً!",
+                boxHints: [
+                    "المُرَبَّعُ ١: حَرْفُ (كـ) مُتَحَرِّكٌ وَحْدَهُ.",
+                    "المُرَبَّعُ ٢: (تا) مَقْطَعٌ مَمْدُودٌ يُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٣: حَرْفُ (ب) وَحْدَهُ."
+                ]
+            },
+            {
+                word: "الْمُعَلِّمُ",
+                syllables: ["الـ", "مـ", "ـعلـ", "لـ", "ـم"],
+                acceptedVariants: [
+                    ["الـ", "ال", "أل", "ألـ"],
+                    ["مـ", "م", "مُـ", "مُ"],
+                    ["ـعلـ", "عل", "علـ", "ـعل", "عَلْ", "ـعَلْـ"],
+                    ["لـ", "ل", "لِـ", "لِ"],
+                    ["ـم", "م", "ـمُ", "مُ"]
+                ],
+                skill: "مَهَارَةُ اللَّامِ القَمَرِيَّةِ وَفَكِّ التَّضْعِيفِ (الشَّدَّةِ)",
+                boxCountHint: "فُكَّ الشَّدَّةَ: السَّاكِنُ مَعَ العَيْنِ (ـعلـ) وَالمُتَحَرِّكُ (لـ) وَحْدَهُ.",
+                hintRule: "فُكَّ الشَّدَّةَ: السَّاكِنُ مَعَ العَيْنِ (ـعلـ)، وَ(الـ) تُكْتَبُ مَعاً!",
+                boxHints: [
+                    "المُرَبَّعُ ١: (الـ) القَمَرِيَّةُ تُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٢: حَرْفُ (مـ) مُتَحَرِّكٌ وَحْدَهُ.",
+                    "المُرَبَّعُ ٣: فُكَّ الشَّدَّةَ: السَّاكِنُ مَعَ العَيْنِ (ـعلـ).",
+                    "المُرَبَّعُ ٤: الحَرْفُ المُتَحَرِّكُ (لـ) بَعْدَ فَكِّ الشَّدَّةِ.",
+                    "المُرَبَّعُ ٥: حَرْفُ (ـم) وَحْدَهُ."
+                ]
+            },
+            {
+                word: "فِي",
+                syllables: ["في"],
+                acceptedVariants: [
+                    ["في", "فِي"]
+                ],
+                skill: "مَهَارَةُ المَقْطَعِ المَمْدُودِ بِاليَاءِ",
+                boxCountHint: "المَقْطَعُ المَمْدُودُ (في) يُكْتَبُ مَعاً فِي مُرَبَّعٍ وَاحِدٍ.",
+                hintRule: "المَقْطَعُ المَمْدُودُ (في) يُكْتَبُ مَعاً!",
+                boxHints: [
+                    "المُرَبَّعُ ١: (في) مَقْطَعٌ مَمْدُودٌ يُكْتَبُ مَعاً."
+                ]
+            },
+            {
+                word: "عُصْفُورٌ",
+                syllables: ["عصـ", "ـفو", "ر"],
+                acceptedVariants: [
+                    ["عصـ", "عص", "عُصْ", "عُصْـ", "عُص"],
+                    ["ـفو", "فو", "ـفُو", "فُو"],
+                    ["ر", "رٌ", "ـر", "ـرٌ"]
+                ],
+                skill: "مَهَارَةُ المَقْطَعِ السَّاكِنِ وَالمَدِّ بِالوَاوِ",
+                boxCountHint: "تَذَكَّرْ: (عصـ) مَقْطَعٌ سَاكِنٌ مَعاً، وَ(ـفو) مَقْطَعٌ مَمْدُودٌ مَعاً.",
+                hintRule: "تَذَكَّرْ: (عصـ) مَقْطَعٌ سَاكِنٌ مَعاً، وَ(ـفو) مَقْطَعٌ مَمْدُودٌ مَعاً!",
+                boxHints: [
+                    "المُرَبَّعُ ١: (عصـ) مَقْطَعٌ سَاكِنٌ يُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٢: (ـفو) مَقْطَعٌ مَمْدُودٌ يُكْتَبُ مَعاً.",
+                    "المُرَبَّعُ ٣: حَرْفُ (ر) وَحْدَهُ."
+                ]
+            }
+        ];
+
+        const boxStyles = [
+            { border: "border-sky-400", headerBg: "bg-sky-100", text: "text-sky-900" },
+            { border: "border-amber-400", headerBg: "bg-amber-100", text: "text-amber-900" },
+            { border: "border-emerald-400", headerBg: "bg-emerald-100", text: "text-emerald-900" },
+            { border: "border-purple-400", headerBg: "bg-purple-100", text: "text-purple-900" },
+            { border: "border-rose-400", headerBg: "bg-rose-100", text: "text-rose-900" }
+        ];
+
+        const DEFAULT_BOX_COUNT = 3;
+        const MIN_BOX_COUNT = 1;
+        const MAX_BOX_COUNT = 7;
+
+        let studentName = "";
+        let currentWordIndex = 0;
+        let currentBoxCount = DEFAULT_BOX_COUNT;
+        let currentPenColor = "#1e293b";
+        let currentPenSize = 6;
+        let soundEnabled = true;
+        let isVerifying = false;
+
+        let savedDrawings = {};
+        let savedBoxCounts = {};
+        let solvedWords = new Array(journeyWords.length).fill(false);
+        let boxHasStrokes = [];
+        let boxStates = [];
+        let audioCtx = null;
+
+        let startTime = null;
+        let elapsedTimeSeconds = 0;
+        let timerInterval = null;
+
+        function showToast(message, type = "info") {
+            try {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+
+                const toast = document.createElement('div');
+                let colors = "bg-sky-600 text-white border-sky-300";
+                let icon = "fa-info-circle";
+
+                if (type === "warning") {
+                    colors = "bg-amber-500 text-amber-950 border-amber-200";
+                    icon = "fa-exclamation-circle";
+                } else if (type === "success") {
+                    colors = "bg-emerald-600 text-white border-emerald-300";
+                    icon = "fa-check-circle";
+                }
+
+                toast.className = `${colors} border-2 px-4 py-3 rounded-2xl shadow-xl font-extrabold text-sm sm:text-base flex items-center gap-2.5 animate-pop-in pointer-events-auto`;
+                toast.innerHTML = `<i class="fas ${icon} text-lg"></i><span>${message}</span>`;
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.opacity = "0";
+                    toast.style.transform = "translateY(-10px)";
+                    toast.style.transition = "all 0.25s ease";
+                    setTimeout(() => toast.remove(), 260);
+                }, 2800);
+            } catch (e) {
+                console.warn("Toast error:", e);
+            }
+        }
+
+        function selectPenColor(color, btnEl) {
+            currentPenColor = color;
+            playSound('pop');
+            document.querySelectorAll('.pen-swatch').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-sky-400', 'scale-110');
+                btn.classList.add('ring-2', 'ring-slate-300');
+            });
+            if (btnEl) {
+                btnEl.classList.remove('ring-2', 'ring-slate-300');
+                btnEl.classList.add('ring-4', 'ring-sky-400', 'scale-110');
+            }
+        }
+
+        function selectPenSize(size, btnEl) {
+            currentPenSize = size;
+            playSound('pop');
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.remove('border-sky-500', 'bg-sky-100', 'text-sky-900');
+                btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+            });
+            if (btnEl) {
+                btnEl.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+                btnEl.classList.add('border-sky-500', 'bg-sky-100', 'text-sky-900');
+            }
+        }
+
+        function getAudioContext() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return null;
+            if (!audioCtx) {
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+
+                if (type === 'pop') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(780, now + 0.08);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.09);
+                } else if (type === 'erase') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.linearRampToValueAtTime(180, now + 0.12);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.13);
+                } else if (type === 'stepSuccess') {
+                    const notes = [440, 554.37, 659.25, 880, 1108.73];
+                    notes.forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                        gain.gain.setValueAtTime(0.2, now + i * 0.07);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.25);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + i * 0.07);
+                        osc.stop(now + i * 0.07 + 0.25);
+                    });
+                } else if (type === 'fanfare') {
+                    const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
+                    notes.forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                        gain.gain.setValueAtTime(0.25, now + i * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + i * 0.12);
+                        osc.stop(now + i * 0.12 + 0.4);
+                    });
+                } else if (type === 'warn') {
+                    const notes = [300, 240, 180];
+                    notes.forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+                        gain.gain.setValueAtTime(0.12, now + i * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.22);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + i * 0.1);
+                        osc.stop(now + i * 0.1 + 0.22);
+                    });
+                }
+            } catch (e) {
+                console.warn("Audio playback skipped:", e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (soundEnabled) {
+                icon.className = "fas fa-volume-up text-lg";
+                playSound('pop');
+                showToast("تم تشغيل الصوت 🔊", "info");
+            } else {
+                icon.className = "fas fa-volume-mute text-lg text-rose-500";
+                showToast("تم كتم الصوت 🔇", "info");
+            }
+        }
+
+        function speakCurrentWord() {
+            try {
+                const wordObj = journeyWords[currentWordIndex];
+                const btn = document.getElementById('speak-btn');
+                const wordDisplay = document.getElementById('target-word-display');
+
+                if (btn) {
+                    btn.classList.add('scale-110', 'ring-4', 'ring-white');
+                    setTimeout(() => btn.classList.remove('scale-110', 'ring-4', 'ring-white'), 500);
+                }
+                if (wordDisplay) {
+                    wordDisplay.classList.add('scale-110', 'text-amber-300');
+                    setTimeout(() => wordDisplay.classList.remove('scale-110', 'text-amber-300'), 650);
+                }
+
+                playSound('pop');
+
+                if ('speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(wordObj.word);
+                    utterance.lang = 'ar-SA';
+                    utterance.rate = 0.85;
+                    utterance.pitch = 1.05;
+
+                    const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+                    const arabicVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
+                    if (arabicVoice) {
+                        utterance.voice = arabicVoice;
+                    }
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch (e) {
+                console.warn("Speech fallback triggered:", e);
+                playSound('pop');
+            }
+        }
+
+        function startTimer() {
+            elapsedTimeSeconds = 0;
+            startTime = Date.now();
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                const diff = Math.floor((Date.now() - startTime) / 1000);
+                elapsedTimeSeconds = diff;
+                const mins = Math.floor(diff / 60).toString().padStart(2, '0');
+                const secs = (diff % 60).toString().padStart(2, '0');
+                const timerEl = document.getElementById('timer-display');
+                if (timerEl) {
+                    timerEl.textContent = `${mins}:${secs}`;
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function getFormattedTime() {
+            const mins = Math.floor(elapsedTimeSeconds / 60).toString().padStart(2, '0');
+            const secs = (elapsedTimeSeconds % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function startJourney() {
+            try {
+                const input = document.getElementById('student-name-input');
+                const nameVal = input ? input.value.trim() : "";
+
+                if (!nameVal) {
+                    try { playSound('warn'); } catch (e) {}
+                    showToast("اُكْتُبِ اسْمَكَ الجَمِيلَ أَوَّلًا يَا بَطَلُ!", "warning");
+                    if (input) {
+                        input.classList.add('animate-shake', 'border-rose-400');
+                        setTimeout(() => input.classList.remove('animate-shake', 'border-rose-400'), 450);
+                        input.focus();
+                    }
+                    return;
+                }
+
+                studentName = nameVal;
+                const headerNameEl = document.getElementById('header-student-name');
+                const totalStepsEl = document.getElementById('total-steps-num');
+                if (headerNameEl) headerNameEl.textContent = studentName;
+                if (totalStepsEl) totalStepsEl.textContent = journeyWords.length;
+
+                document.getElementById('welcome-screen').classList.add('hidden');
+                document.getElementById('workspace-screen').classList.remove('hidden');
+
+                startTimer();
+                updateStarsUI();
+                loadWordStep(0);
+
+                try {
+                    playSound('stepSuccess');
+                } catch (audioErr) {
+                    console.warn("Audio start skipped:", audioErr);
+                }
+            } catch (err) {
+                console.error("Start journey error:", err);
+                const welcome = document.getElementById('welcome-screen');
+                const workspace = document.getElementById('workspace-screen');
+                if (welcome) welcome.classList.add('hidden');
+                if (workspace) workspace.classList.remove('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const startBtn = document.getElementById('start-journey-btn');
+            const nameInput = document.getElementById('student-name-input');
+
+            if (startBtn) {
+                startBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    startJourney();
+                });
+            }
+
+            if (nameInput) {
+                nameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        startJourney();
+                    }
+                });
+            }
+
+            if ('speechSynthesis' in window && window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.getVoices();
+                };
+            }
+        });
+
+        function updateStarsUI() {
+            const count = solvedWords.filter(Boolean).length;
+            document.getElementById('earned-stars-count').textContent = count;
+            const badge = document.getElementById('stars-counter-badge');
+            badge.classList.add('scale-110');
+            setTimeout(() => badge.classList.remove('scale-110'), 300);
+        }
+
+        function renderProgressTrack() {
+            const track = document.getElementById('progress-steps-bar');
+            track.innerHTML = '';
+
+            journeyWords.forEach((item, idx) => {
+                const stepDiv = document.createElement('div');
+                const isSolved = solvedWords[idx];
+                const isCurrent = idx === currentWordIndex;
+
+                let stepClass = "bg-slate-100 border-slate-300 text-slate-400";
+                let iconHtml = `<span class="font-black text-xs sm:text-sm">${idx + 1}</span>`;
+
+                if (isSolved && !isCurrent) {
+                    stepClass = "bg-emerald-500 border-emerald-600 text-white shadow-sm";
+                    iconHtml = `<i class="fas fa-star text-yellow-300 text-xs sm:text-sm"></i>`;
+                } else if (isCurrent) {
+                    stepClass = isSolved 
+                        ? "bg-emerald-500 border-emerald-700 text-white ring-4 ring-emerald-200 scale-105 shadow-md"
+                        : "bg-amber-400 border-amber-600 text-amber-950 ring-4 ring-amber-200 scale-105 shadow-md";
+                    iconHtml = isSolved 
+                        ? `<i class="fas fa-star text-yellow-300 text-xs sm:text-sm"></i>`
+                        : `<i class="fas fa-pencil-alt text-xs sm:text-sm"></i>`;
+                }
+
+                stepDiv.className = `flex-1 h-9 sm:h-10 rounded-xl border-2 flex items-center justify-center gap-1.5 transition-all duration-300 ${stepClass}`;
+                stepDiv.innerHTML = `${iconHtml} <span class="hidden md:inline text-xs font-extrabold truncate max-w-[75px]">${item.word}</span>`;
+                track.appendChild(stepDiv);
+            });
+        }
+
+        function changeBoxCount(delta) {
+            if (isVerifying) return;
+            const newCount = currentBoxCount + delta;
+            if (newCount < MIN_BOX_COUNT || newCount > MAX_BOX_COUNT) return;
+
+            playSound('pop');
+            currentBoxCount = newCount;
+            savedBoxCounts[currentWordIndex] = currentBoxCount;
+
+            if (solvedWords[currentWordIndex]) {
+                solvedWords[currentWordIndex] = false;
+                updateStarsUI();
+                renderProgressTrack();
+            }
+
+            hideFeedbackBanner();
+            updateActionButtonsState();
+            renderBoxesGrid();
+        }
+
+        function updateBoxCounterControls() {
+            document.getElementById('box-count-display').textContent = currentBoxCount;
+            document.getElementById('decrease-box-btn').disabled = (currentBoxCount <= MIN_BOX_COUNT);
+            document.getElementById('increase-box-btn').disabled = (currentBoxCount >= MAX_BOX_COUNT);
+        }
+
+        function updateActionButtonsState() {
+            const isSolved = solvedWords[currentWordIndex];
+            const verifyBtn = document.getElementById('verify-answer-btn');
+            const nextBtn = document.getElementById('next-word-btn');
+            const nextLabel = document.getElementById('next-btn-label');
+            const nextIcon = document.getElementById('next-btn-icon');
+
+            document.getElementById('prev-word-btn').disabled = (currentWordIndex === 0);
+
+            if (isSolved) {
+                verifyBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                if (currentWordIndex === journeyWords.length - 1) {
+                    nextLabel.textContent = "اِسْتِلَامُ شَهَادَةِ التَّفَوُّقِ";
+                    nextIcon.className = "fas fa-award text-2xl text-yellow-300";
+                } else {
+                    nextLabel.textContent = "الِانْتِقَالُ لِلْكَلِمَةِ التَّالِيَةِ";
+                    nextIcon.className = "fas fa-arrow-left text-xl";
+                }
+            } else {
+                verifyBtn.classList.remove('hidden');
+                nextBtn.classList.add('hidden');
+            }
+        }
+
+        function loadWordStep(index) {
+            currentWordIndex = index;
+            const wordObj = journeyWords[index];
+
+            document.getElementById('current-step-num').textContent = index + 1;
+            document.getElementById('target-word-display').textContent = wordObj.word;
+
+            currentBoxCount = savedBoxCounts[index] || DEFAULT_BOX_COUNT;
+            savedBoxCounts[index] = currentBoxCount;
+
+            if (!savedDrawings[index]) {
+                savedDrawings[index] = {};
+            }
+
+            hideFeedbackBanner();
+            renderProgressTrack();
+            updateActionButtonsState();
+            renderBoxesGrid();
+        }
+
+        function renderBoxesGrid() {
+            updateBoxCounterControls();
+
+            const grid = document.getElementById('handwriting-boxes-grid');
+            grid.innerHTML = '';
+
+            if (currentBoxCount === 1) {
+                grid.className = "grid grid-cols-1 max-w-sm mx-auto gap-4 mb-7";
+            } else if (currentBoxCount <= 3) {
+                grid.className = "grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7";
+            } else if (currentBoxCount === 4) {
+                grid.className = "grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-7";
+            } else if (currentBoxCount === 5) {
+                grid.className = "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-7";
+            } else {
+                grid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 mb-7";
+            }
+
+            const isWordAlreadySolved = solvedWords[currentWordIndex];
+            boxHasStrokes = new Array(currentBoxCount).fill(false);
+            boxStates = new Array(currentBoxCount).fill(isWordAlreadySolved ? 'correct' : 'neutral');
+
+            for (let i = 0; i < currentBoxCount; i++) {
+                const style = boxStyles[i % boxStyles.length];
+                const boxWrapper = document.createElement('div');
+                boxWrapper.id = `canvas-box-wrapper-${i}`;
+                boxWrapper.className = `rounded-3xl border-4 ${isWordAlreadySolved ? 'border-emerald-500 ring-4 ring-emerald-200' : style.border} bg-white shadow-md flex flex-col overflow-hidden transition-all duration-200 relative`;
+
+                const boxHeader = document.createElement('div');
+                boxHeader.id = `canvas-box-header-${i}`;
+                boxHeader.className = `${isWordAlreadySolved ? 'bg-emerald-100 border-emerald-500' : `${style.headerBg} ${style.border}`} px-3 py-2 flex items-center justify-between border-b-2`;
+                boxHeader.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-black text-xs sm:text-sm ${isWordAlreadySolved ? 'text-emerald-900' : style.text}">مَقْطَعٌ ${i + 1}</span>
+                        <span id="box-status-badge-${i}" class="${isWordAlreadySolved ? 'inline-flex' : 'hidden'} items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-black shadow-sm">
+                            <i class="fas fa-check"></i>
+                        </span>
+                    </div>
+                    <button type="button" onclick="eraseSingleBox(${i})" title="مسح هذا المربع فقط"
+                        class="bg-white hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-300 rounded-xl px-2.5 py-1 text-xs font-extrabold flex items-center gap-1 shadow-sm transition cursor-pointer">
+                        <i class="fas fa-eraser"></i>
+                        <span>مَمْحَاةٌ</span>
+                    </button>
+                `;
+                boxWrapper.appendChild(boxHeader);
+
+                const canvasContainer = document.createElement('div');
+                canvasContainer.className = "relative w-full h-40 sm:h-44 bg-white";
+
+                const canvas = document.createElement('canvas');
+                canvas.id = `syllable-canvas-${i}`;
+                canvas.className = "syllable-canvas w-full h-full block";
+                canvasContainer.appendChild(canvas);
+
+                const baseline = document.createElement('div');
+                baseline.className = "writing-baseline";
+                canvasContainer.appendChild(baseline);
+
+                boxWrapper.appendChild(canvasContainer);
+                grid.appendChild(boxWrapper);
+            }
+
+            requestAnimationFrame(() => {
+                for (let i = 0; i < currentBoxCount; i++) {
+                    setupHighDPICanvas(i);
+                }
+            });
+        }
+
+        function setBoxVisualState(boxIndex, state) {
+            boxStates[boxIndex] = state;
+            const wrapper = document.getElementById(`canvas-box-wrapper-${boxIndex}`);
+            const header = document.getElementById(`canvas-box-header-${boxIndex}`);
+            const badge = document.getElementById(`box-status-badge-${boxIndex}`);
+            const style = boxStyles[boxIndex % boxStyles.length];
+
+            if (!wrapper || !header || !badge) return;
+
+            wrapper.classList.remove('border-emerald-500', 'ring-4', 'ring-emerald-200', 'border-rose-500', 'ring-rose-200', 'border-sky-400', 'border-amber-400', 'border-emerald-400', 'border-purple-400', 'border-rose-400');
+            header.classList.remove('bg-emerald-100', 'border-emerald-500', 'bg-rose-100', 'border-rose-500', 'bg-sky-100', 'bg-amber-100', 'bg-purple-100', 'bg-rose-100');
+
+            if (state === 'correct') {
+                wrapper.classList.add('border-emerald-500', 'ring-4', 'ring-emerald-200');
+                header.classList.add('bg-emerald-100', 'border-emerald-500');
+                badge.className = "inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-black shadow-sm";
+                badge.innerHTML = `<i class="fas fa-check"></i>`;
+            } else if (state === 'wrong') {
+                wrapper.classList.add('border-rose-500', 'ring-4', 'ring-rose-200', 'animate-shake');
+                header.classList.add('bg-rose-100', 'border-rose-500');
+                badge.className = "inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-black shadow-sm";
+                badge.innerHTML = `<i class="fas fa-times"></i>`;
+                setTimeout(() => wrapper.classList.remove('animate-shake'), 450);
+            } else {
+                wrapper.classList.add(style.border);
+                header.classList.add(style.headerBg, style.border);
+                badge.className = "hidden";
+            }
+        }
+
+        function setupHighDPICanvas(boxIndex) {
+            const canvas = document.getElementById(`syllable-canvas-${boxIndex}`);
+            if (!canvas) return;
+
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const existingData = savedDrawings[currentWordIndex][boxIndex];
+            if (existingData) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, rect.width, rect.height);
+                };
+                img.src = existingData;
+                boxHasStrokes[boxIndex] = true;
+            }
+
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+
+            function getPoint(e) {
+                const r = canvas.getBoundingClientRect();
+                if (e.touches && e.touches.length > 0) {
+                    return {
+                        x: e.touches[0].clientX - r.left,
+                        y: e.touches[0].clientY - r.top
+                    };
+                }
+                return {
+                    x: e.clientX - r.left,
+                    y: e.clientY - r.top
+                };
+            }
+
+            function startStroke(e) {
+                if (isVerifying) return;
+                if (e.cancelable) e.preventDefault();
+                isDrawing = true;
+                const pt = getPoint(e);
+                lastX = pt.x;
+                lastY = pt.y;
+
+                ctx.beginPath();
+                ctx.fillStyle = currentPenColor;
+                ctx.arc(lastX, lastY, currentPenSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                boxHasStrokes[boxIndex] = true;
+
+                if (boxStates[boxIndex] !== 'neutral') {
+                    setBoxVisualState(boxIndex, 'neutral');
+                }
+                if (solvedWords[currentWordIndex]) {
+                    solvedWords[currentWordIndex] = false;
+                    updateStarsUI();
+                    renderProgressTrack();
+                    updateActionButtonsState();
+                }
+            }
+
+            function moveStroke(e) {
+                if (!isDrawing) return;
+                if (e.cancelable) e.preventDefault();
+
+                const pt = getPoint(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(pt.x, pt.y);
+                ctx.strokeStyle = currentPenColor;
+                ctx.lineWidth = currentPenSize;
+                ctx.stroke();
+
+                lastX = pt.x;
+                lastY = pt.y;
+            }
+
+            function endStroke() {
+                if (isDrawing) {
+                    isDrawing = false;
+                    savedDrawings[currentWordIndex][boxIndex] = canvas.toDataURL('image/png');
+                }
+            }
+
+            canvas.addEventListener('mousedown', startStroke);
+            canvas.addEventListener('mousemove', moveStroke);
+            canvas.addEventListener('mouseup', endStroke);
+            canvas.addEventListener('mouseleave', endStroke);
+
+            canvas.addEventListener('touchstart', startStroke, { passive: false });
+            canvas.addEventListener('touchmove', moveStroke, { passive: false });
+            canvas.addEventListener('touchend', endStroke);
+        }
+
+        function eraseSingleBox(boxIndex) {
+            if (isVerifying) return;
+            const canvas = document.getElementById(`syllable-canvas-${boxIndex}`);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+            boxHasStrokes[boxIndex] = false;
+            if (savedDrawings[currentWordIndex]) {
+                delete savedDrawings[currentWordIndex][boxIndex];
+            }
+
+            setBoxVisualState(boxIndex, 'neutral');
+
+            if (solvedWords[currentWordIndex]) {
+                solvedWords[currentWordIndex] = false;
+                updateStarsUI();
+                renderProgressTrack();
+                updateActionButtonsState();
+            }
+
+            playSound('erase');
+        }
+
+        function eraseAllBoxes() {
+            if (isVerifying) return;
+            for (let i = 0; i < currentBoxCount; i++) {
+                eraseSingleBox(i);
+            }
+            hideFeedbackBanner();
+        }
+
+        function showFeedbackBanner(type, title, message) {
+            const banner = document.getElementById('feedback-banner');
+            const icon = document.getElementById('feedback-icon');
+            const titleEl = document.getElementById('feedback-title');
+            const msgEl = document.getElementById('feedback-message');
+
+            banner.classList.remove('hidden', 'bg-rose-50', 'border-rose-400', 'text-rose-950', 'bg-emerald-50', 'border-emerald-400', 'text-emerald-950', 'bg-amber-50', 'border-amber-400', 'text-amber-950');
+
+            if (type === 'error') {
+                banner.classList.add('bg-rose-50', 'border-rose-400', 'text-rose-950');
+                icon.innerHTML = '<i class="fas fa-times-circle text-rose-600"></i>';
+            } else if (type === 'success') {
+                banner.classList.add('bg-emerald-50', 'border-emerald-400', 'text-emerald-950');
+                icon.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i>';
+            } else {
+                banner.classList.add('bg-amber-50', 'border-amber-400', 'text-amber-950');
+                icon.innerHTML = '<i class="fas fa-lightbulb text-amber-500"></i>';
+            }
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+        }
+
+        function hideFeedbackBanner() {
+            document.getElementById('feedback-banner').classList.add('hidden');
+        }
+
+        function getCleanWhiteBackgroundImageBase64(canvas) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.fillStyle = '#FFFFFF';
+            tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tCtx.drawImage(canvas, 0, 0);
+            return tempCanvas.toDataURL('image/png').split(',')[1];
+        }
+
+        async function callGeminiVisionWithRetry(payload, maxRetries = 3) {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        throw new Error("Empty response from Gemini");
+                    }
+                    return JSON.parse(text);
+                } catch (err) {
+                    if (attempt === maxRetries) {
+                        throw err;
+                    }
+                    const delay = Math.pow(2, attempt) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function verifyHandwritingAnswer() {
+            if (isVerifying) return;
+            const wordObj = journeyWords[currentWordIndex];
+            const expectedSyllables = wordObj.syllables;
+
+            if (currentBoxCount !== expectedSyllables.length) {
+                playSound('warn');
+                const actionDirection = currentBoxCount < expectedSyllables.length
+                    ? `زِدْ عَدَدَ المُرَبَّعَاتِ (+).`
+                    : `أَنْقِصْ عَدَدَ المُرَبَّعَاتِ (-).`;
+                
+                showFeedbackBanner(
+                    'warning',
+                    'عَدَدُ المُرَبَّعَاتِ غَيْرُ صَحِيحٍ!',
+                    `${actionDirection} ${wordObj.boxCountHint}`
+                );
+                const counterEl = document.getElementById('box-count-display');
+                counterEl.classList.add('animate-shake', 'border-rose-500');
+                setTimeout(() => counterEl.classList.remove('animate-shake', 'border-rose-500'), 450);
+                return;
+            }
+
+            let emptyBoxes = [];
+            for (let i = 0; i < currentBoxCount; i++) {
+                if (!boxHasStrokes[i]) {
+                    emptyBoxes.push(i);
+                }
+            }
+
+            if (emptyBoxes.length > 0) {
+                playSound('warn');
+                const firstEmptyHint = wordObj.boxHints?.[emptyBoxes[0]] || '';
+                showFeedbackBanner(
+                    'warning',
+                    'يُوجَدُ مُرَبَّعٌ فَارِغٌ!',
+                    `أَكْمِلِ الكِتَابَةَ فِي جَمِيعِ المُرَبَّعَاتِ. ${firstEmptyHint}`
+                );
+                emptyBoxes.forEach(idx => setBoxVisualState(idx, 'wrong'));
+                return;
+            }
+
+            isVerifying = true;
+            const verifyBtn = document.getElementById('verify-answer-btn');
+            const originalBtnHtml = verifyBtn.innerHTML;
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = `<i class="fas fa-spinner fa-spin text-xl"></i><span>جَارِي فَحْصُ التَّحْلِيلِ بَدَقَّةٍ...</span>`;
+
+            try {
+                const expectedListDescription = expectedSyllables.map((syl, idx) => {
+                    const variants = wordObj.acceptedVariants?.[idx]?.join(' أو ') || syl;
+                    return `- المربع ${idx + 1}: "${syl}" (تُقبل كتابته متصلاً أو منفصلاً وبحركات أو بدون حركات مثل: ${variants})`;
+                }).join('\n');
+
+                const parts = [
+                    {
+                        text: `أنت معلم خبير وصارم في تقييم مادة لغتي للصف الثالث الابتدائي. يقوم الطالب بتحليل الكلمة العربية: "${wordObj.word}" إلى مقاطع صوتية مكتوبة بخط اليد داخل ${expectedSyllables.length} مربعات مرتبة من اليمين إلى اليسار.
+المقاطع الصوتية الصحيحة المتوقعة بالترتيب من المربع 1 إلى المربع ${expectedSyllables.length} هي:
+${expectedListDescription}
+
+سأرفق لك صور خط يد الطالب لكل مربع بالترتيب (من المربع 1 إلى المربع ${expectedSyllables.length}).
+المطلوب بدقة تامة:
+1. اقرأ الحروف المرسومة في كل مربع بدقة.
+2. إذا كان الحرف أو المقطع في المربع غير صحيح أو لا يطابق المطلوب علمياً، اجعل isCorrect للمربع = false.
+3. إذا كانت الإجابة خاطئة لأي مربع، اجعل isAllCorrect = false.
+4. أرجع النتيجة بصيغة JSON فقط حسب المخطط المحدد.`
+                    }
+                ];
+
+                for (let i = 0; i < currentBoxCount; i++) {
+                    const canvas = document.getElementById(`syllable-canvas-${i}`);
+                    const base64Img = getCleanWhiteBackgroundImageBase64(canvas);
+                    parts.push({ text: `صورة خط يد الطالب في المربع رقم ${i + 1}:` });
+                    parts.push({
+                        inlineData: {
+                            mimeType: "image/png",
+                            data: base64Img
+                        }
+                    });
+                }
+
+                const payload = {
+                    contents: [{ role: "user", parts: parts }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                boxResults: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            boxNumber: { type: "INTEGER" },
+                                            isCorrect: { type: "BOOLEAN" },
+                                            recognizedText: { type: "STRING" }
+                                        },
+                                        required: ["boxNumber", "isCorrect"]
+                                    }
+                                },
+                                isAllCorrect: { type: "BOOLEAN" },
+                                teacherFeedback: { type: "STRING" }
+                            },
+                            required: ["boxResults", "isAllCorrect", "teacherFeedback"]
+                        }
+                    }
+                };
+
+                const evaluation = await callGeminiVisionWithRetry(payload);
+
+                let allBoxesValid = true;
+                let wrongBoxIndices = [];
+                for (let i = 0; i < currentBoxCount; i++) {
+                    const boxRes = evaluation.boxResults?.find(r => r.boxNumber === (i + 1));
+                    const isBoxOk = boxRes ? Boolean(boxRes.isCorrect) : false;
+                    setBoxVisualState(i, isBoxOk ? 'correct' : 'wrong');
+                    if (!isBoxOk) {
+                        allBoxesValid = false;
+                        wrongBoxIndices.push(i);
+                    }
+                }
+
+                if (allBoxesValid && evaluation.isAllCorrect) {
+                    solvedWords[currentWordIndex] = true;
+                    updateStarsUI();
+                    renderProgressTrack();
+                    updateActionButtonsState();
+
+                    playSound('stepSuccess');
+                    showFeedbackBanner(
+                        'success',
+                        'تَحْلِيلٌ صَحِيحٌ 100% يَا بَطَلُ! 🌟',
+                        evaluation.teacherFeedback || 'أَحْسَنْتَ! كَتَبْتَ جَمِيعَ المَقَاطِعِ الصَّوْتِيَّةِ بِشَكْلٍ صَحِيحٍ وَمُرَتَّبٍ.'
+                    );
+
+                    if (typeof confetti === 'function') {
+                        confetti({ particleCount: 95, spread: 75, origin: { y: 0.6 } });
+                    }
+                    document.getElementById('star-modal-message').textContent = 
+                        `أَحْسَنْتَ يَا ${studentName}! لَقَدْ حَلَّلْتَ كَلِمَةَ (${wordObj.word}) بِنَجَاحٍ وَحَصَلْتَ عَلَى النَّجْمَةِ رَقْم (${solvedWords.filter(Boolean).length})!`;
+                    document.getElementById('star-celebration-modal').classList.remove('hidden');
+
+                } else {
+                    solvedWords[currentWordIndex] = false;
+                    updateStarsUI();
+                    renderProgressTrack();
+                    updateActionButtonsState();
+
+                    playSound('warn');
+                    const firstWrongHint = wrongBoxIndices.length > 0 ? (wordObj.boxHints?.[wrongBoxIndices[0]] || '') : '';
+                    const fullGuidance = firstWrongHint || wordObj.hintRule;
+                    
+                    showFeedbackBanner('error', 'خَطَأٌ فِي المُرَبَّعِ الأَحْمَرِ (✕) — اِمْسَحْهُ وَحَاوِلْ ثَانِيَةً!', fullGuidance);
+                }
+
+            } catch (error) {
+                console.error("Verification error:", error);
+                playSound('warn');
+                showFeedbackBanner('warning', 'تَعَذَّرَ التَّحَقُّقُ عَبْرَ الشَّبَكَةِ', 'تَأَكَّدْ مِنَ الاتِّصَالِ الجَيِّدِ بِالإِنْتَرْنِتِ ثُمَّ أَعِدِ المُحَاوَلَةَ.');
+            } finally {
+                isVerifying = false;
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = originalBtnHtml;
+            }
+        }
+
+        function closeStarModal() {
+            playSound('pop');
+            document.getElementById('star-celebration-modal').classList.add('hidden');
+        }
+
+        function goToPreviousWord() {
+            if (isVerifying) return;
+            if (currentWordIndex > 0) {
+                playSound('pop');
+                loadWordStep(currentWordIndex - 1);
+            }
+        }
+
+        function goToNextWord() {
+            if (isVerifying) return;
+            if (!solvedWords[currentWordIndex]) {
+                playSound('warn');
+                showToast("يَجِبُ أَنْ تَحُلَّ هَذِهِ الكَلِمَةَ بِشَكْلٍ صَحِيحٍ أَوَّلًا!", "warning");
+                return;
+            }
+
+            if (currentWordIndex < journeyWords.length - 1) {
+                playSound('pop');
+                loadWordStep(currentWordIndex + 1);
+            } else {
+                stopTimer();
+                showFinalCertificate();
+            }
+        }
+
+        function showFinalCertificate() {
+            document.getElementById('workspace-screen').classList.add('hidden');
+            document.getElementById('certificate-screen').classList.remove('hidden');
+
+            document.getElementById('cert-student-name').textContent = studentName;
+            document.getElementById('cert-time-taken').textContent = getFormattedTime();
+
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('ar-SA', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('cert-date').textContent = formattedDate;
+
+            playSound('fanfare');
+
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 130, spread: 85, origin: { y: 0.55 } });
+                setTimeout(() => {
+                    confetti({ particleCount: 80, spread: 100, origin: { y: 0.65 } });
+                }, 600);
+            }
+        }
+
+        function downloadCertificate() {
+            const certElement = document.getElementById('certificate-card');
+            showToast("جَارِي تَجْهِيزُ شَهَادَتِكَ الجَمِيلَةِ... 📸", "info");
+            playSound('pop');
+
+            html2canvas(certElement, {
+                scale: 2.5,
+                backgroundColor: "#ffffff",
+                useCORS: true
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const cleanName = studentName.replace(/\s+/g, '_');
+                link.download = `شهادة_تفوق_${cleanName}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast("تَمَّ حِفْظُ الشَّهَادَةِ بِنَجَاحٍ! أَرْسِلْهَا لِمُعَلِّمَتِكَ الآنَ 🎉", "success");
+            }).catch(err => {
+                console.error(err);
+                showToast("تَعَذَّرَ الحِفْظُ التِّلْقَائِيُّ، يُمْكِنُكَ أَخْذُ لَقْطَةِ شَاشَةٍ لِلشَّهَادَةِ.", "warning");
+            });
+        }
+
+        function restartJourney() {
+            savedDrawings = {};
+            savedBoxCounts = {};
+            solvedWords = new Array(journeyWords.length).fill(false);
+            currentWordIndex = 0;
+            updateStarsUI();
+            document.getElementById('certificate-screen').classList.add('hidden');
+            document.getElementById('workspace-screen').classList.remove('hidden');
+            startTimer();
+            playSound('pop');
+            loadWordStep(0);
+        }
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            if (document.getElementById('workspace-screen').classList.contains('hidden')) return;
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                for (let i = 0; i < currentBoxCount; i++) {
+                    setupHighDPICanvas(i);
+                }
+            }, 250);
+        });
+    </script>
+</body>
+</html>
